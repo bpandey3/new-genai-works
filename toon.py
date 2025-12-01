@@ -1,23 +1,18 @@
 # --------------------------------------------------------------
-# llm_openai.py
-# Complete tool-calling implementation using llm_openai.complete()
+# llm_openai.py  (2025 API Compatible)
 # --------------------------------------------------------------
 
 from openai import OpenAI
 import json
 
-# Initialize the OpenAI client (expects OPENAI_API_KEY in env)
 client = OpenAI()
 
 # --------------------------------------------------------------
-# Tool Implementation (your actual backend tool function)
+# Tool implementation
 # --------------------------------------------------------------
 
 def get_weather(city: str, units: str = "metric"):
-    """
-    A simple fake weather API implementation for demo.
-    Replace this with real API logic if needed.
-    """
+
     fake_weather_db = {
         "New York": {"temp": 12, "condition": "Cloudy"},
         "San Francisco": {"temp": 17, "condition": "Sunny"},
@@ -28,34 +23,29 @@ def get_weather(city: str, units: str = "metric"):
     return {
         "city": city,
         "temp": base["temp"],
-        "units": units,
-        "condition": base["condition"]
+        "condition": base["condition"],
+        "units": units
     }
 
 # --------------------------------------------------------------
-# LLM Wrapper Class
+# LLM wrapper using new API (responses.create)
 # --------------------------------------------------------------
 
 class llm_openai:
 
     @staticmethod
     def complete(prompt: str):
-        """
-        Calls GPT with tool support.
-        Automatically detects tool use, executes tools,
-        and returns final LLM response.
-        """
 
-        # Step 1: Ask GPT with tools enabled
-        response = client.chat.completions.create(
+        # Step 1: Ask model with tool definitions
+        response = client.responses.create(
             model="gpt-4.1",
-            messages=[{"role": "user", "content": prompt}],
+            input=prompt,
             tools=[
                 {
                     "type": "function",
                     "function": {
                         "name": "get_weather",
-                        "description": "Returns weather data for a city.",
+                        "description": "Returns weather info for a city",
                         "parameters": {
                             "type": "object",
                             "properties": {
@@ -73,51 +63,49 @@ class llm_openai:
             ]
         )
 
-        msg = response.choices[0].message
+        # Extract first message
+        msg = response.output[0]
 
         # ----------------------------------------------------------
-        # CASE 1 — Normal LLM content (no tool call)
+        # CASE 1 — Model returned final text, no tool call
         # ----------------------------------------------------------
-        if not msg.tool_calls:
-            return msg.content
+        if msg.type == "message" and not hasattr(msg, "tool_calls"):
+            return msg.content[0].text
 
         # ----------------------------------------------------------
-        # CASE 2 — Tool call detected
+        # CASE 2 — Tool call required
         # ----------------------------------------------------------
-        final_messages = [{"role": "user", "content": prompt}]
+        final_messages = [ {"role": "user", "content": prompt} ]
 
         for tool_call in msg.tool_calls:
+
             name = tool_call.function.name
             args = json.loads(tool_call.function.arguments)
 
-            # Run the tool on your backend:
+            # Execute backend tool
             if name == "get_weather":
                 tool_result = get_weather(**args)
             else:
                 tool_result = {"error": "Unknown tool"}
 
-            # Send tool result back to model
-            final_messages.append(msg)
             final_messages.append({
                 "role": "tool",
-                "tool_call_id": tool_call.id,
-                "content": json.dumps(tool_result)
+                "content": json.dumps(tool_result),
+                "tool_call_id": tool_call.id
             })
 
-        # Step 3: Ask GPT again with the tool output
-        final_response = client.chat.completions.create(
+        # Ask the model again with tool response
+        final = client.responses.create(
             model="gpt-4.1",
             messages=final_messages
         )
 
-        return final_response.choices[0].message.content
+        return final.output_text
 
 
 # --------------------------------------------------------------
-# Example Usage
+# Run Example
 # --------------------------------------------------------------
+
 if __name__ == "__main__":
-
-    print("\n=== Query Example ===\n")
-    answer = llm_openai.complete("What's the weather in New York today?")
-    print(answer)
+    print(llm_openai.complete("What's the weather in New York?"))
