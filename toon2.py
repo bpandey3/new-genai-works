@@ -1,14 +1,14 @@
-from openai import OpenAI
-client = OpenAI()
-
 prompt = """
-Give the answer in TOON format only.
-TOON = key=value pairs separated by | with no spaces.
+Format BOTH the question and answer in this TOON schema:
 
-Example:
-q=Paris|c=France|p=2.1M
+question_id=<short_id>|
+question_text=<compressed_question>|
+topic=<topic>|
+answer=<short_answer>|
+detail=<extra>
 
-Question: What is the capital of France?
+Convert this question:
+"Who discovered gravity?"
 """
 
 response = client.responses.create(
@@ -17,3 +17,6 @@ response = client.responses.create(
 )
 
 print(response.output_text)
+
+
+question_id=q_gravity|question_text=discoverer_of_gravity|topic=physics|answer=Newton|detail=17th_century
