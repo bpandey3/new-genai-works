@@ -1,1 +1,3 @@
 https://opentelemetry.io/docs/languages/python/exporters/#span-processors
+
+https://medium.com/@zmrfzn/instrumenting-aws-lambda-functions-with-opentelemetry-sdks-8537bac09c5c
